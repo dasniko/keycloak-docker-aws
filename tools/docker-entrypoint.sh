@@ -6,8 +6,8 @@
 
 # for security reasons, we only store credentials in AWS SecretsManager and obtain the info from there at runtime
 # of course, the running EC2 instance needs access to SecretsManager via IAM instance policies
-if [ $KEYCLOAK_USER_SECRET ]; then
-  SECRET=$(aws secretsmanager get-secret-value --secret-id $KEYCLOAK_USER_SECRET --query 'SecretString' --region eu-central-1 --output text)
+if [ "$KEYCLOAK_ADMIN_USER_SECRET" ]; then
+  SECRET=$(aws secretsmanager get-secret-value --secret-id $KEYCLOAK_ADMIN_USER_SECRET --query 'SecretString' --region eu-central-1 --output text)
   export KEYCLOAK_USER=$(echo $SECRET | jq .username -r)
   export KEYCLOAK_PASSWORD=$(echo $SECRET | jq .password -r)
 fi
@@ -158,6 +158,8 @@ fi
 
 /opt/jboss/tools/x509.sh
 /opt/jboss/tools/jgroups.sh $JGROUPS_DISCOVERY_PROTOCOL $JGROUPS_DISCOVERY_PROPERTIES
+
+$JBOSS_HOME/bin/jboss-cli.sh --file="/opt/jboss/tools/cli/cache_owners.cli" >& /dev/null
 
 ##################
 # Start Keycloak #
