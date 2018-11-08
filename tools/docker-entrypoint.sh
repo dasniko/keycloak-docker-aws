@@ -165,7 +165,7 @@ $JBOSS_HOME/bin/jboss-cli.sh --file="/opt/jboss/tools/cli/cache_owners.cli" >& /
 # Start Keycloak #
 ##################
 
-# to be able to communicate vai JGroups in EC2 Dockerized environment (e.g. ElasticBeanstalk, we need the hostname from the runnint instance, see also keycloak-ha.cli, we do this via the EC2 meta-data service, available in every EC2 instance)
+# to be able to communicate vai JGroups in EC2 Dockerized environment (e.g. ElasticBeanstalk, we need the hostname from the runnint instance, see also JDBC_PING.cli, we do this via the EC2 meta-data service, available in every EC2 instance)
 export EC2_HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
 SYS_PROPS+=" -Djboss.node.name=$EC2_HOSTNAME"
 
