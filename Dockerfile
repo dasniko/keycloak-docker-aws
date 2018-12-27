@@ -1,4 +1,4 @@
-FROM jboss/keycloak:4.5.0.Final
+FROM jboss/keycloak:4.8.1.Final
 
 LABEL maintainer="Niko Köbler, https://www.n-k.de, @dasniko"
 
