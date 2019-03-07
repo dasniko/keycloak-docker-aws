@@ -1,16 +1,16 @@
 #!/bin/bash
 
+################################################
+# Custom script for setting envvars at runtime #
+################################################
+
+. /opt/jboss/tools/aws.sh
+
+
 ##################
 # Add admin user #
 ##################
 
-# for security reasons, we only store credentials in AWS SecretsManager and obtain the info from there at runtime
-# of course, the running EC2 instance needs access to SecretsManager via IAM instance policies
-if [ "$KEYCLOAK_ADMIN_USER_SECRET" ]; then
-  SECRET=$(aws secretsmanager get-secret-value --secret-id $KEYCLOAK_ADMIN_USER_SECRET --query 'SecretString' --region eu-central-1 --output text)
-  export KEYCLOAK_USER=$(echo $SECRET | jq .username -r)
-  export KEYCLOAK_PASSWORD=$(echo $SECRET | jq .password -r)
-fi
 if [ $KEYCLOAK_USER ] && [ $KEYCLOAK_PASSWORD ]; then
     /opt/jboss/keycloak/bin/add-user-keycloak.sh --user $KEYCLOAK_USER --password $KEYCLOAK_PASSWORD
 fi
@@ -61,21 +61,6 @@ SYS_PROPS+=" $BIND_OPTS"
 # If the "-c" parameter is not present, append the HA profile.
 if echo "$@" | egrep -v -- "-c "; then
     SYS_PROPS+=" -c standalone-ha.xml"
-fi
-
-##############
-# DB secrets #
-##############
-
-# again we obtain the database connection credentails from AWS SecretsManager
-if [ $KEYCLOAK_DB_SECRET ]; then
-  SECRET=$(aws secretsmanager get-secret-value --secret-id $KEYCLOAK_DB_SECRET --query 'SecretString' --region eu-central-1 --output text)
-  export DB_VENDOR=$(echo $SECRET | jq .engine -r)
-  export DB_ADDR=$(echo $SECRET | jq .host -r)
-  export DB_PORT=$(echo $SECRET | jq .port -r)
-  export DB_DATABASE=$(echo $SECRET | jq .dbname -r)
-  export DB_USER=$(echo $SECRET | jq .username -r)
-  export DB_PASSWORD=$(echo $SECRET | jq .password -r)
 fi
 
 ############
@@ -158,16 +143,11 @@ fi
 
 /opt/jboss/tools/x509.sh
 /opt/jboss/tools/jgroups.sh $JGROUPS_DISCOVERY_PROTOCOL $JGROUPS_DISCOVERY_PROPERTIES
-
-$JBOSS_HOME/bin/jboss-cli.sh --file="/opt/jboss/tools/cli/cache_owners.cli" >& /dev/null
+/opt/jboss/tools/autorun.sh
 
 ##################
 # Start Keycloak #
 ##################
-
-# to be able to communicate vai JGroups in EC2 Dockerized environment (e.g. ElasticBeanstalk, we need the hostname from the runnint instance, see also JDBC_PING.cli, we do this via the EC2 meta-data service, available in every EC2 instance)
-export EC2_HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
-SYS_PROPS+=" -Djboss.node.name=$EC2_HOSTNAME"
 
 exec /opt/jboss/keycloak/bin/standalone.sh $SYS_PROPS $@
 exit $?

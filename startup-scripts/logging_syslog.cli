@@ -1,0 +1,20 @@
+embed-server --server-config=standalone-ha.xml --std-out=echo
+batch
+
+#/subsystem=logging/syslog-handler=SYSLOG:add
+#/subsystem=logging/syslog-handler=SYSLOG:write-attribute(name=app-name,value=keycloak)
+#/subsystem=logging/syslog-handler=SYSLOG:write-attribute(name=hostname,value=${env.EC2_HOSTNAME})
+#/subsystem=logging/syslog-handler=SYSLOG:write-attribute(name=syslog-format,value=RFC5424)
+#/subsystem=logging/syslog-handler=SYSLOG:write-attribute(name=server-address,value=${env.SYSLOG_HOST})
+#/subsystem=logging/syslog-handler=SYSLOG:write-attribute(name=port,value=${env.SYSLOG_PORT})
+#/subsystem=logging/syslog-handler=SYSLOG:write-attribute(name=protocol,value=SSL_TCP)
+
+# the above won't work, b/c the syslog-handler cli doesn't support the protocol property
+# see also here: https://github.com/wildfly/wildfly-core/issues/1659
+
+/subsystem=logging/custom-handler=SYSLOG:add(class=org.jboss.logmanager.handlers.SyslogHandler, module=org.jboss.logmanager, level=ALL, encoding=UTF-8, properties=[("appName" => "keycloak"), ("hostname" => "${env.EC2_HOSTNAME}"), ("syslogType" => "RFC5424"), ("serverHostname" => "${env.SYSLOG_HOST}"), ("port" => "${env.SYSLOG_PORT}"), ("enabled" => "true"), ("protocol" => "SSL_TCP")])
+
+/subsystem=logging/root-logger=ROOT:add-handler(name=SYSLOG)
+
+run-batch
+stop-embedded-server
