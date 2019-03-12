@@ -34,5 +34,17 @@ fi
 #########################
 
 # to be able to communicate via JGroups in EC2 Dockerized environment (e.g. ElasticBeanstalk, we need the hostname from the running instance, see also JDBC_PING.cli, we do this via the EC2 meta-data service, available in every EC2 instance)
-export EC2_HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
-SYS_PROPS+=" -Djboss.node.name=$EC2_HOSTNAME"
+if [ "$JGROUPS_DISCOVERY_PROTOCOL" != "" ]; then
+  export EC2_HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
+  SYS_PROPS=" -Djboss.node.name=$EC2_HOSTNAME"
+else
+  SYS_PROPS=" -Djboss.node.name=$(hostname)"
+fi
+
+
+############################
+# call original entrypoint #
+############################
+
+exec /opt/jboss/tools/docker-entrypoint.sh $SYS_PROPS $@
+exit $?

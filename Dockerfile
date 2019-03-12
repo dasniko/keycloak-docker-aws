@@ -20,3 +20,5 @@ COPY startup-scripts /opt/jboss/startup-scripts
 # 8080 for http
 # 7600 for jgroups
 EXPOSE 8080 7600
+
+ENTRYPOINT [ "/opt/jboss/tools/aws-entrypoint.sh" ]
