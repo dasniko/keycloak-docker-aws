@@ -1,0 +1,10 @@
+embed-server --server-config=standalone-ha.xml --std-out=echo
+batch
+
+# set console logger to json format
+
+/subsystem=logging/json-formatter=JSON-PATTERN:add
+/subsystem=logging/console-handler=CONSOLE/:write-attribute(name=named-formatter,value=JSON-PATTERN)
+
+run-batch
+stop-embedded-server
