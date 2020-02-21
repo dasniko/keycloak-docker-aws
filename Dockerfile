@@ -1,4 +1,4 @@
-FROM quay.io/keycloak/keycloak:8.0.1
+FROM quay.io/keycloak/keycloak:9.0.0
 
 LABEL maintainer="Niko Köbler, https://www.n-k.de, @dasniko"
 
@@ -14,15 +14,17 @@ USER jboss
 COPY --chown=jboss:root demo-realm.json /opt/jboss/keycloak/
 ENV KEYCLOAK_IMPORT /opt/jboss/keycloak/demo-realm.json
 
+ENV PROXY_ADDRESS_FORWARDING true
+
 # and some customized theme(s) (for demo purpose, it's only the sunrise theme, coming with keycloak demo)
-COPY themes /opt/jboss/keycloak/themes
+COPY --chown=jboss:root themes /opt/jboss/keycloak/themes
 
 # our implemented spi's (for demo purpose it's the demo user-spi from https://github.com/dasniko/keycloak-user-spi-demo)
 #ADD --chown=jboss:root https://github.com/dasniko/keycloak-user-spi-demo/releases/download/1/keycloak-demo-user-spi.jar /opt/jboss/keycloak/standalone/deployments
 
 # add customized tools (aws-entrypoint.sh and jgroups configuration cli)
-COPY tools /opt/jboss/tools
-COPY startup-scripts /opt/jboss/startup-scripts
+COPY --chown=jboss:root tools /opt/jboss/tools
+COPY --chown=jboss:root startup-scripts /opt/jboss/startup-scripts
 
 # 8080 for http
 # 7600 for jgroups
