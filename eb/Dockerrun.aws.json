@@ -1,0 +1,15 @@
+{
+  "AWSEBDockerrunVersion": "2",
+  "containerDefinitions": [
+    {
+      "name": "keycloak",
+      "image": "029153074662.dkr.ecr.eu-central-1.amazonaws.com/dasniko/keycloak:latest",
+      "essential": true,
+      "memory": 768,
+      "portMappings": [
+        {"hostPort": 80, "containerPort": 8080},
+        {"hostPort": 7600, "containerPort": 7600}
+      ]
+    }
+  ]
+}

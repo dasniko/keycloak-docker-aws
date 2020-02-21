@@ -1,0 +1,198 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation template for all Keycloak demo resources
+
+Parameters:
+  KeycloakDBUsername:
+    Type: String
+    Default: keycloak_db_admin
+    NoEcho: true
+    MinLength: 4
+    MaxLength: 32
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_]*"
+  KeycloakDBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/26
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-vpc"
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/28
+      AvailabilityZone: eu-central-1a
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.16/28
+      AvailabilityZone: eu-central-1b
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-gw"
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "rtb-${AWS::StackName}"
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  SubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref SubnetA
+  SubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref SubnetB
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Application Access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 7600
+        ToPort: 7600
+        CidrIp: !GetAtt VPC.CidrBlock
+        Description: Keycloak Cluster Infinispan/JGroups
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-sg-app"
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS Access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+        SourceSecurityGroupId: !Ref AppSecurityGroup
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-sg-rds"
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub "RDS Subnet Group for ${AWS::StackName}"
+      SubnetIds:
+      - !Ref SubnetA
+      - !Ref SubnetB
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-rds-subnet-group"
+  KeycloakDB:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Retain
+    Properties:
+      AllocatedStorage: 20
+      AllowMajorVersionUpgrade: true
+      BackupRetentionPeriod: 7
+      CACertificateIdentifier: rds-ca-2019
+      CopyTagsToSnapshot: true
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: !Sub "${AWS::StackName}-db"
+      DBName: keycloak
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DeletionProtection: true
+      EnablePerformanceInsights: true
+      Engine: postgres
+      EngineVersion: "11.2"
+      MasterUsername: !Ref KeycloakDBUsername
+      MasterUserPassword: !Ref KeycloakDBPassword
+      MultiAZ: false
+      PerformanceInsightsRetentionPeriod: 7
+      PreferredBackupWindow: 00:00-00:59
+      PreferredMaintenanceWindow: Sun:01:00-Sun:01:59
+      PubliclyAccessible: false
+      StorageEncrypted: true
+      StorageType: gp2
+      VPCSecurityGroups:
+      - !GetAtt DBSecurityGroup.GroupId
+
+  ApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+      - arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+      - PolicyName: "application"
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:PutRetentionPolicy
+            Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/elasticbeanstalk*"
+          - Effect: Allow
+            Action:
+            - secretsmanager:GetSecretValue
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+      RoleName: !Sub "${AWS::StackName}-role"
+  ApplicationInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+      - !Ref ApplicationRole
+      InstanceProfileName: !Sub "${AWS::StackName}-instance-profile"
+
+Outputs:
+  VPC:
+    Value: !Ref VPC
+  SubnetA:
+    Value: !Ref SubnetA
+  SubnetB:
+    Value: !Ref SubnetB
+  AppSecurityGroup:
+    Value: !Ref AppSecurityGroup
+  DBSecurityGroup:
+    Value: !Ref DBSecurityGroup
+  DBSubnetGroup:
+    Value: !Ref DBSubnetGroup
+  KeycloakDBHostname:
+    Value: !GetAtt KeycloakDB.Endpoint.Address
+  KeycloakDBPort:
+    Value: !GetAtt KeycloakDB.Endpoint.Port
+  ApplicationRole:
+    Value: !Ref ApplicationRole
+  ApplicationInstanceProfile:
+    Value: !Ref ApplicationInstanceProfile

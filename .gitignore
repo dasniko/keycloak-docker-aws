@@ -1,4 +1,2 @@
-cfn/*
-eb/*
 push.sh
 standalone*.xml
